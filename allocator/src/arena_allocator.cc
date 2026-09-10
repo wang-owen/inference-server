@@ -1,6 +1,5 @@
 #include "allocator/arena_allocator.h"
 
-#include <bit>
 #include <cassert>
 #include <cstdlib>
 #include <format>

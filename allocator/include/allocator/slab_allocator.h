@@ -22,6 +22,8 @@ public:
 
   std::size_t chunk_size() const { return chunk_size_; }
 
+  std::size_t chunk_count() const { return chunk_count_; }
+
   std::size_t free_count() const { return free_count_; }
 
 private:

@@ -19,7 +19,34 @@ option(INFERENCE_SERVER_BUILD_TESTS "Build GoogleTest unit test suites" ON)
 option(INFERENCE_SERVER_BUILD_BENCHMARKS
        "Build std::chrono benchmark executables" ON)
 
+option(ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+
+if(ENABLE_TSAN AND ENABLE_ASAN)
+  message(FATAL_ERROR "ENABLE_TSAN and ENABLE_ASAN are mutually exclusive.")
+endif()
+
+if(ENABLE_TSAN)
+  add_compile_options(-fsanitize=thread -g -O1)
+  add_link_options(-fsanitize=thread)
+
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+  message(STATUS "ThreadSanitizer (TSan) enabled.")
+endif()
+
+if(ENABLE_ASAN)
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g -O1)
+  add_link_options(-fsanitize=address)
+
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+  message(STATUS "AddressSanitizer (ASan) enabled.")
+endif()
+
 find_package(Threads REQUIRED)
+
+include(cmake/Module.cmake)
 
 # GoogleTest
 if(INFERENCE_SERVER_BUILD_TESTS)
