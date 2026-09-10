@@ -69,3 +69,4 @@ if(INFERENCE_SERVER_BUILD_TESTS)
 endif()
 
 add_subdirectory(allocator)
+add_subdirectory(threadpool)
