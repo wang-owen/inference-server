@@ -70,3 +70,4 @@ endif()
 
 add_subdirectory(allocator)
 add_subdirectory(threadpool)
+add_subdirectory(netserver)
