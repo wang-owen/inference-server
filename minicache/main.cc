@@ -5,24 +5,44 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <fcntl.h>
 #include <format>
 #include <iostream>
+#include <mutex>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 
 namespace {
 
-std::atomic<netserver::TcpServer *> gServer{nullptr};
+std::atomic<netserver::EventLoop *> gLoop{nullptr};
+
+// On some platforms (e.g. macOS/BSD) an accepted socket inherits O_NONBLOCK
+// from the listening socket, which Acceptor sets for its own accept loop.
+// handle_client() below does blocking read()/send() calls, so each accepted
+// fd needs blocking mode restored explicitly.
+void set_blocking(int fd) {
+  int flags = ::fcntl(fd, F_GETFL);
+  ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+}
 
 void handle_shutdown_signal(int) {
-  if (netserver::TcpServer *server = gServer.load()) {
-    server->stop();
+  if (netserver::EventLoop *loop = gLoop.load()) {
+    loop->stop();
   }
 }
 
-void handle_client(int client_fd, minicache::CommandDispatcher &dispatcher) {
+// dispatcher (and the LruCache behind it) isn't internally synchronized, and
+// every accepted connection now runs handle_client() on its own thread, so
+// dispatch calls across connections must be serialized here.
+void handle_client(int client_fd, minicache::CommandDispatcher &dispatcher,
+                   std::mutex &dispatcher_mutex) {
   auto execute = [&](const std::string &command) {
-    std::string response = dispatcher.dispatch(command);
+    std::string response;
+    {
+      std::lock_guard<std::mutex> lock(dispatcher_mutex);
+      response = dispatcher.dispatch(command);
+    }
     std::size_t sent = 0;
     while (sent < response.size()) {
       ssize_t bytes_sent =
@@ -67,20 +87,26 @@ int main() {
 
   minicache::LruCache cache(1024);
   minicache::CommandDispatcher dispatcher(cache);
-  netserver::TcpServer server{kBindAddress, kPort};
-  if (!server.start()) {
+  std::mutex dispatcher_mutex;
+
+  netserver::EventLoop loop;
+  netserver::Acceptor acceptor(&loop, kBindAddress, kPort);
+  acceptor.set_new_connection_callback([&](int client_fd) {
+    set_blocking(client_fd);
+    std::thread(handle_client, client_fd, std::ref(dispatcher),
+                std::ref(dispatcher_mutex))
+        .detach();
+  });
+
+  if (!acceptor.start()) {
     std::cerr << std::format("Failed to start server at {}:{}\n", kBindAddress,
                              kPort);
     return 1;
   }
 
-  gServer.store(&server);
+  gLoop.store(&loop);
   std::signal(SIGINT, handle_shutdown_signal);
-  while (true) {
-    int client_fd = server.accept_connection();
-    if (client_fd == -1) {
-      break;
-    }
-    handle_client(client_fd, dispatcher);
-  }
+  std::cout << std::format("minicache: listening on {}:{}\n", kBindAddress,
+                           kPort);
+  loop.run();
 }
