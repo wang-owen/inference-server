@@ -11,6 +11,7 @@ without calling into it.
 
 - `threadpool_dep` is also an unused link dependency
 - Failures within a worker thread are not propagated upwards. If engine throws then `response.at` fails and worker terminates. `fut.get()` throws.
+- a shutdown causes all pending tasks to be dropped
 
 ## Why batching helps
 
