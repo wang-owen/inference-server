@@ -9,7 +9,6 @@ without calling into it.
 
 ## TODO
 
-- No network front end
 - `threadpool_dep` is also an unused link dependency
 - Failures within a worker thread are not propagated upwards. If engine throws then `response.at` fails and worker terminates. `fut.get()` throws.
 
