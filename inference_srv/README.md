@@ -12,9 +12,9 @@ without calling into it.
 - **No network front end.** There's no [`netserver`](../netserver)-backed
   listener yet -- `main.cc`, the tests, and the benchmark all call
   `BatchingQueue::submit()` in-process. Nothing currently accepts a
-  request over a socket. `netserver_lib` is linked in
-  `CMakeLists.txt` but unused in source.
-- **`threadpool_lib` is also an unused link dependency** -- `BatchingQueue`
+  request over a socket. `netserver_dep` is linked in
+  `meson.build` but unused in source.
+- **`threadpool_dep` is also an unused link dependency** -- `BatchingQueue`
   hand-rolls its own single worker thread rather than calling `threadpool::ThreadPool`
 
 ## Why batching helps
@@ -73,8 +73,8 @@ Two independent conditions can trigger a flush, whichever comes first:
     include/inference_srv/  public headers (#include "inference_srv/...")
     src/                     implementation
     main.cc                 tiny demo executable
-    tests/                    GoogleTest suite
-    benchmarks/               std::chrono micro-benchmarks (not run by ctest)
+    tests/                    Catch2 suite
+    benchmarks/               Catch2 benchmarks (run via `meson test --benchmark`)
 
 ## Components
 - `BatchingQueue` -- producer-consumer queue (mutex + condition_variable +

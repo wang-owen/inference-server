@@ -9,8 +9,8 @@ non-blockingly and hands each new fd to a callback.
     include/netserver/  public headers (#include "netserver/...")
     src/                 implementation
     main.cc             tiny demo executable
-    tests/                GoogleTest suite
-    benchmarks/           std::chrono micro-benchmarks (not run by ctest)
+    tests/                Catch2 suite
+    benchmarks/           Catch2 benchmarks (run via `meson test --benchmark`)
 
 ## Components
 - `TcpListener` — raw listening socket (`socket`/`bind`/`listen`), no

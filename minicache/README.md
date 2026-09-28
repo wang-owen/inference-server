@@ -7,8 +7,8 @@ eviction, built on top of [`netserver`](../netserver).
     include/minicache/  public headers (#include "minicache/...")
     src/                   implementation
     main.cc               tiny demo executable
-    tests/                  GoogleTest suite
-    benchmarks/             std::chrono micro-benchmarks (not run by ctest)
+    tests/                  Catch2 suite
+    benchmarks/             Catch2 benchmarks (run via `meson test --benchmark`)
 
 ## Design
 `LruCache` implements O(1) get/put/remove with LRU eviction
