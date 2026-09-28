@@ -23,6 +23,8 @@ InferenceEngine::InferenceEngine() : batch_arena_{kBatchArenaBytes} {}
 
 void InferenceEngine::run_batch(const std::vector<Request> &batch,
                                 std::vector<Response> &out_responses) {
+  batch_arena_.reset();
+
   out_responses.clear();
   out_responses.reserve(batch.size());
 
@@ -50,8 +52,6 @@ void InferenceEngine::run_batch(const std::vector<Request> &batch,
   // Simulate model latency
   std::this_thread::sleep_for(kFixedOverheadPerBatch +
                               std::chrono::milliseconds(batch.size()));
-
-  batch_arena_.reset();
 }
 
 } // namespace inference_srv
