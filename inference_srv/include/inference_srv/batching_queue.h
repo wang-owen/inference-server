@@ -13,6 +13,8 @@
 
 namespace inference_srv {
 
+using Clock = std::chrono::steady_clock;
+
 struct Request {
   std::uint64_t id;
   std::uint64_t client_id;
@@ -50,6 +52,7 @@ private:
   struct PendingRequest {
     Request request;
     ResponseCallback on_response;
+    std::chrono::time_point<Clock> enqueue_time = Clock::now();
   };
 
   void worker_loop();

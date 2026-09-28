@@ -39,17 +39,21 @@ void BatchingQueue::worker_loop() {
     std::size_t len;
     {
       std::unique_lock<std::mutex> lock{mtx_};
+      // BUG: pending_ requests dropped on shutdown without invoking callback;
+      // caller hangs
+      cv_.wait(lock, [this] { return stop_ || !pending_.empty(); });
       if (stop_)
         break;
 
-      auto deadline = std::chrono::steady_clock::now() + max_wait_;
+      auto deadline = pending_.front().enqueue_time + max_wait_;
       cv_.wait_until(lock, deadline, [this] {
         return stop_ || pending_.size() >= max_batch_size_;
       });
+      if (stop_)
+        break;
 
-      if ((len = std::min(pending_.size(),
-                          static_cast<std::size_t>(max_batch_size_))) == 0)
-        continue;
+      len =
+          std::min(pending_.size(), static_cast<std::size_t>(max_batch_size_));
 
       for (std::size_t i = 0; i < len; ++i) {
         pending_requests.push_back(std::move(pending_[i]));
