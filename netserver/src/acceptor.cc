@@ -8,18 +8,10 @@
 #include <thread>
 
 #include "netserver/channel.h"
+#include "netserver/fd_util.h"
 #include "netserver/event_loop.h"
 
 namespace netserver {
-
-namespace {
-
-void set_nonblocking(int fd) {
-  int flags = ::fcntl(fd, F_GETFL);
-  ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
-} // namespace
 
 Acceptor::Acceptor(EventLoop *loop, std::string bind_address,
                    std::uint16_t port)
@@ -39,7 +31,7 @@ bool Acceptor::start() {
   // The read callback below relies on accept() returning EAGAIN to know
   // when it has drained every pending connection; that only happens on a
   // non-blocking fd.
-  set_nonblocking(listener_.listen_fd());
+  fd_util::set_nonblocking(listener_.listen_fd());
 
   channel_ = std::make_unique<Channel>(loop_, listener_.listen_fd());
   channel_->set_read_callback([this] { handle_read(); });
@@ -52,6 +44,7 @@ void Acceptor::handle_read() {
     int client_fd = ::accept(listener_.listen_fd(), nullptr, nullptr);
 
     if (client_fd != -1) {
+      // TODO: Check new_connection_callback_ exists
       new_connection_callback_(client_fd);
       continue;
     }

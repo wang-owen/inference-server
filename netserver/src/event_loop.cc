@@ -1,33 +1,28 @@
 #include "netserver/event_loop.h"
 
-#include <atomic>
 #include <fcntl.h>
+#include <unistd.h>
+
+#include <atomic>
 #include <memory>
 #include <system_error>
-#include <unistd.h>
 
 #include <cassert>
 
 #include "netserver/channel.h"
+#include "netserver/fd_util.h"
 #include "netserver/poller.h"
 
 namespace netserver {
 
 EventLoop::EventLoop() : poller_{Poller::create_default()} {
-  const auto set_nonblocking = [](int fd) {
-    int flags = ::fcntl(fd, F_GETFL);
-    if (flags == -1 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-      throw std::system_error(errno, std::generic_category(), "::fcntl");
-    }
-  };
-
   int fildes[2];
   if (::pipe(fildes) == -1) {
     throw std::system_error(errno, std::generic_category(), "::pipe");
   }
 
-  set_nonblocking(fildes[0]);
-  set_nonblocking(fildes[1]);
+  fd_util::set_nonblocking(fildes[0]);
+  fd_util::set_nonblocking(fildes[1]);
   wakeup_read_fd_ = fildes[0];
   wakeup_write_fd_ = fildes[1];
 

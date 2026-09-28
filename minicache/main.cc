@@ -1,30 +1,24 @@
 #include "minicache/minicache.h"
-#include "netserver/netserver.h"
+
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
-#include <fcntl.h>
 #include <format>
 #include <iostream>
 #include <mutex>
-#include <sys/socket.h>
 #include <thread>
-#include <unistd.h>
+
+#include "netserver/fd_util.h"
+#include "netserver/netserver.h"
 
 namespace {
 
 std::atomic<netserver::EventLoop *> gLoop{nullptr};
-
-// On some platforms (e.g. macOS/BSD) an accepted socket inherits O_NONBLOCK
-// from the listening socket, which Acceptor sets for its own accept loop.
-// handle_client() below does blocking read()/send() calls, so each accepted
-// fd needs blocking mode restored explicitly.
-void set_blocking(int fd) {
-  int flags = ::fcntl(fd, F_GETFL);
-  ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-}
 
 void handle_shutdown_signal(int) {
   if (netserver::EventLoop *loop = gLoop.load()) {
@@ -92,7 +86,7 @@ int main() {
   netserver::EventLoop loop;
   netserver::Acceptor acceptor(&loop, std::string(kBindAddress), kPort);
   acceptor.set_new_connection_callback([&](int client_fd) {
-    set_blocking(client_fd);
+    netserver::fd_util::set_blocking(client_fd);
     std::thread(handle_client, client_fd, std::ref(dispatcher),
                 std::ref(dispatcher_mutex))
         .detach();
