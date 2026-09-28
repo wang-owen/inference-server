@@ -1,60 +1,62 @@
 #include "minicache/command_dispatcher.h"
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 
-TEST(CommandDispatcherTest, ConstructsWithCache) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    SUCCEED();
+TEST_CASE("ConstructsWithCache", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  SUCCEED();
 }
 
-TEST(CommandDispatcherTest, SetReturnsOk) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("SET foo bar"), "OK");
+TEST_CASE("SetReturnsOk", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("SET foo bar") == "OK");
 }
 
-TEST(CommandDispatcherTest, GetAfterSetReturnsValue) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    dispatcher.dispatch("SET foo bar");
-    EXPECT_EQ(dispatcher.dispatch("GET foo"), "bar");
+TEST_CASE("GetAfterSetReturnsValue", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  dispatcher.dispatch("SET foo bar");
+  CHECK(dispatcher.dispatch("GET foo") == "bar");
 }
 
-TEST(CommandDispatcherTest, GetOnMissingKeyReturnsNil) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("GET missing"), "(nil)");
+TEST_CASE("GetOnMissingKeyReturnsNil", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("GET missing") == "(nil)");
 }
 
-TEST(CommandDispatcherTest, DelRemovesKey) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    dispatcher.dispatch("SET foo bar");
-    EXPECT_EQ(dispatcher.dispatch("DEL foo"), "OK");
-    EXPECT_EQ(dispatcher.dispatch("GET foo"), "(nil)");
+TEST_CASE("DelRemovesKey", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  dispatcher.dispatch("SET foo bar");
+  CHECK(dispatcher.dispatch("DEL foo") == "OK");
+  CHECK(dispatcher.dispatch("GET foo") == "(nil)");
 }
 
-TEST(CommandDispatcherTest, DelOnMissingKeyReturnsFail) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("DEL missing"), "FAIL");
+TEST_CASE("DelOnMissingKeyReturnsFail", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("DEL missing") == "FAIL");
 }
 
-TEST(CommandDispatcherTest, SetWithMissingArgumentsReturnsError) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("SET foo"), "ERR wrong number of arguments for 'SET'");
+TEST_CASE("SetWithMissingArgumentsReturnsError", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("SET foo") ==
+        "ERR wrong number of arguments for 'SET'");
 }
 
-TEST(CommandDispatcherTest, GetWithMissingArgumentsReturnsError) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("GET"), "ERR wrong number of arguments for 'GET'");
+TEST_CASE("GetWithMissingArgumentsReturnsError", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("GET") ==
+        "ERR wrong number of arguments for 'GET'");
 }
 
-TEST(CommandDispatcherTest, UnknownCommandReturnsError) {
-    minicache::LruCache cache(16);
-    minicache::CommandDispatcher dispatcher(cache);
-    EXPECT_EQ(dispatcher.dispatch("FOO bar"), "ERR unknown command 'FOO'");
+TEST_CASE("UnknownCommandReturnsError", "[command_dispatcher]") {
+  minicache::LruCache cache(16);
+  minicache::CommandDispatcher dispatcher(cache);
+  CHECK(dispatcher.dispatch("FOO bar") == "ERR unknown command 'FOO'");
 }

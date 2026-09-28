@@ -1,0 +1,12 @@
+option(
+    'tests',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Build Catch2 unit test suites',
+)
+option(
+    'benchmarks',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Build Catch2 benchmark executables',
+)

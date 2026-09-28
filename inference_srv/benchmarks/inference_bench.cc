@@ -1,17 +1,17 @@
 #include "inference_srv/inference_srv.h"
 
+#include <catch2/benchmark/catch_benchmark.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
+
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
-#include <cstdio>
 #include <mutex>
+#include <string>
 #include <vector>
 
 namespace {
-
-double to_ms(std::chrono::steady_clock::duration d) {
-  return std::chrono::duration<double, std::milli>(d).count();
-}
 
 std::vector<inference_srv::Request> make_requests(int count) {
   std::vector<inference_srv::Request> reqs;
@@ -23,68 +23,65 @@ std::vector<inference_srv::Request> make_requests(int count) {
 }
 
 // Baseline: process one request at a time, each as its own "batch" of 1
-double run_naive(const std::vector<inference_srv::Request> &requests) {
-  inference_srv::InferenceEngine engine;
+std::size_t run_naive(inference_srv::InferenceEngine &engine,
+                      const std::vector<inference_srv::Request> &requests) {
   std::vector<inference_srv::Response> responses;
-
-  auto start = std::chrono::steady_clock::now();
   for (const auto &req : requests) {
     std::vector<inference_srv::Request> single{req};
     engine.run_batch(single, responses);
   }
-  return to_ms(std::chrono::steady_clock::now() - start);
+  return responses.size();
 }
 
-// Batched: submit all requests through a BatchingQueue and wait for every
-// response, letting the queue group them by max_batch_size/max_wait
-double run_batched(const std::vector<inference_srv::Request> &requests,
-                   std::size_t max_batch_size,
-                   std::chrono::milliseconds max_wait) {
-  inference_srv::InferenceEngine engine;
+// Batched: submits requests through one long-lived BatchingQueue and waits
+// for every response, letting the queue group them by max_batch_size/max_wait.
+// The queue outlives each timed run so its thread startup and shutdown aren't
+// measured.
+class BatchedRunner {
+public:
+  BatchedRunner(std::size_t max_batch_size, std::chrono::milliseconds max_wait)
+      : queue_(max_batch_size, max_wait,
+               [this](const std::vector<inference_srv::Request> &batch,
+                      std::vector<inference_srv::Response> &out) {
+                 engine_.run_batch(batch, out);
+               }) {}
 
-  std::mutex mtx;
-  std::condition_variable cv;
-  std::size_t received = 0;
-
-  inference_srv::BatchingQueue queue(
-      max_batch_size, max_wait,
-      [&engine](const std::vector<inference_srv::Request> &batch,
-                std::vector<inference_srv::Response> &out) {
-        engine.run_batch(batch, out);
+  std::size_t run(const std::vector<inference_srv::Request> &requests) {
+    {
+      std::lock_guard<std::mutex> lock(mtx_);
+      received_ = 0;
+    }
+    for (const auto &req : requests) {
+      queue_.submit(req, [this](inference_srv::Response) {
+        std::lock_guard<std::mutex> lock(mtx_);
+        ++received_;
+        cv_.notify_all();
       });
-
-  auto start = std::chrono::steady_clock::now();
-  for (const auto &req : requests) {
-    queue.submit(req, [&](inference_srv::Response) {
-      std::lock_guard<std::mutex> lock(mtx);
-      ++received;
-      cv.notify_all();
-    });
+    }
+    std::unique_lock<std::mutex> lock(mtx_);
+    cv_.wait(lock, [&] { return received_ >= requests.size(); });
+    return received_;
   }
 
-  std::unique_lock<std::mutex> lock(mtx);
-  cv.wait(lock, [&] { return received >= requests.size(); });
-  return to_ms(std::chrono::steady_clock::now() - start);
-}
-
-void run_at_request_count(int count) {
-  auto requests = make_requests(count);
-
-  double naive_ms = run_naive(requests);
-  double batched_ms = run_batched(requests, /*max_batch_size=*/32,
-                                  std::chrono::milliseconds(10));
-
-  std::printf("%6d requests | naive: %8.2f ms | batched: %8.2f ms | speedup: "
-              "%.2fx\n",
-              count, naive_ms, batched_ms, naive_ms / batched_ms);
-}
+private:
+  inference_srv::InferenceEngine engine_;
+  std::mutex mtx_;
+  std::condition_variable cv_;
+  std::size_t received_ = 0;
+  inference_srv::BatchingQueue queue_;
+};
 
 } // namespace
 
-int main() {
-  std::printf("inference_srv throughput: naive (one-at-a-time) vs batched\n");
-  for (int count : {10, 50, 200, 1000}) {
-    run_at_request_count(count);
-  }
-  return 0;
+TEST_CASE("inference_srv throughput: naive (one-at-a-time) vs batched",
+          "[!benchmark][inference_srv]") {
+  const int count = GENERATE(10, 50, 200, 1000);
+  const auto requests = make_requests(count);
+  const std::string suffix = " | " + std::to_string(count) + " requests";
+
+  inference_srv::InferenceEngine engine;
+  BENCHMARK("naive" + suffix) { return run_naive(engine, requests); };
+
+  BatchedRunner batched(/*max_batch_size=*/32, std::chrono::milliseconds(10));
+  BENCHMARK("batched" + suffix) { return batched.run(requests); };
 }

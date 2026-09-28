@@ -1,7 +1,8 @@
 #include "inference_srv/batching_queue.h"
 
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <condition_variable>
-#include <gtest/gtest.h>
 #include <mutex>
 #include <vector>
 
@@ -59,14 +60,14 @@ void DoublingHandler(const std::vector<Request> &batch,
 
 } // namespace
 
-TEST(BatchingQueueTest, ConstructsAndDestructsCleanly) {
+TEST_CASE("ConstructsAndDestructsCleanly", "[batching_queue]") {
   BatchingQueue queue(
       8, std::chrono::milliseconds(5),
       [](const std::vector<Request> &, std::vector<Response> &) {});
   SUCCEED();
 }
 
-TEST(BatchingQueueTest, FullBatchTriggersBeforeMaxWaitElapses) {
+TEST_CASE("FullBatchTriggersBeforeMaxWaitElapses", "[batching_queue]") {
   constexpr std::size_t kBatchSize = 4;
   constexpr auto kMaxWait = std::chrono::milliseconds(500);
   ResponseCollector collector;
@@ -79,11 +80,11 @@ TEST(BatchingQueueTest, FullBatchTriggersBeforeMaxWaitElapses) {
 
   // If this only fired via the max_wait timeout, it wouldn't arrive for
   // 500ms -- a generous fraction of that proves it fired on batch size.
-  EXPECT_TRUE(
+  CHECK(
       collector.wait_for_at_least(kBatchSize, std::chrono::milliseconds(100)));
 }
 
-TEST(BatchingQueueTest, PartialBatchFlushesAfterMaxWait) {
+TEST_CASE("PartialBatchFlushesAfterMaxWait", "[batching_queue]") {
   constexpr std::size_t kBatchSize = 8;
   constexpr auto kMaxWait = std::chrono::milliseconds(20);
   ResponseCollector collector;
@@ -96,11 +97,12 @@ TEST(BatchingQueueTest, PartialBatchFlushesAfterMaxWait) {
 
   // Only 2 of the required 8 requests were submitted, so this can only
   // succeed via the max_wait timeout path, not the batch-size path.
-  ASSERT_TRUE(collector.wait_for_at_least(2, std::chrono::milliseconds(500)));
-  EXPECT_EQ(collector.snapshot().size(), 2u);
+  REQUIRE(collector.wait_for_at_least(2, std::chrono::milliseconds(500)));
+  CHECK(collector.snapshot().size() == 2u);
 }
 
-TEST(BatchingQueueTest, RoutesResponseToCallerMatchingRequestIdNotPosition) {
+TEST_CASE("RoutesResponseToCallerMatchingRequestIdNotPosition",
+          "[batching_queue]") {
   constexpr std::size_t kBatchSize = 3;
   constexpr auto kMaxWait = std::chrono::milliseconds(500);
   ResponseCollector collector;
@@ -124,9 +126,10 @@ TEST(BatchingQueueTest, RoutesResponseToCallerMatchingRequestIdNotPosition) {
                  [&collector](Response r) { collector.add(std::move(r)); });
   }
 
-  ASSERT_TRUE(
+  REQUIRE(
       collector.wait_for_at_least(kBatchSize, std::chrono::milliseconds(500)));
   for (const Response &resp : collector.snapshot()) {
-    EXPECT_FLOAT_EQ(resp.output[0], static_cast<float>(resp.id) * 10.0f);
+    CHECK_THAT(resp.output[0], Catch::Matchers::WithinULP(
+                                   static_cast<float>(resp.id) * 10.0f, 4));
   }
 }

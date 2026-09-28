@@ -1,17 +1,19 @@
 #include "inference_srv/inference_engine.h"
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 using inference_srv::InferenceEngine;
 using inference_srv::Request;
 using inference_srv::Response;
 
-TEST(InferenceEngineTest, ConstructsCleanly) {
+TEST_CASE("ConstructsCleanly", "[inference_engine]") {
   InferenceEngine engine;
   SUCCEED();
 }
 
-TEST(InferenceEngineTest, ProducesOneResponsePerRequestInOrderWithMatchingIds) {
+TEST_CASE("ProducesOneResponsePerRequestInOrderWithMatchingIds",
+          "[inference_engine]") {
   InferenceEngine engine;
   std::vector<Request> batch = {
       Request{.id = 1, .input = {1.0f, 2.0f}},
@@ -22,17 +24,18 @@ TEST(InferenceEngineTest, ProducesOneResponsePerRequestInOrderWithMatchingIds) {
   std::vector<Response> responses;
   engine.run_batch(batch, responses);
 
-  ASSERT_EQ(responses.size(), batch.size());
+  REQUIRE(responses.size() == batch.size());
   for (std::size_t i = 0; i < batch.size(); ++i) {
-    EXPECT_EQ(responses[i].id, batch[i].id);
-    ASSERT_EQ(responses[i].output.size(), batch[i].input.size());
+    CHECK(responses[i].id == batch[i].id);
+    REQUIRE(responses[i].output.size() == batch[i].input.size());
     for (std::size_t j = 0; j < batch[i].input.size(); ++j) {
-      EXPECT_FLOAT_EQ(responses[i].output[j], batch[i].input[j] * 2.0f);
+      CHECK_THAT(responses[i].output[j],
+                 Catch::Matchers::WithinULP(batch[i].input[j] * 2.0f, 4));
     }
   }
 }
 
-TEST(InferenceEngineTest, ReusesArenaAcrossSuccessiveBatches) {
+TEST_CASE("ReusesArenaAcrossSuccessiveBatches", "[inference_engine]") {
   InferenceEngine engine;
 
   for (int iteration = 0; iteration < 3; ++iteration) {
@@ -43,20 +46,20 @@ TEST(InferenceEngineTest, ReusesArenaAcrossSuccessiveBatches) {
     std::vector<Response> responses;
     engine.run_batch(batch, responses);
 
-    ASSERT_EQ(responses.size(), 1u);
-    EXPECT_EQ(responses[0].id, batch[0].id);
-    EXPECT_FLOAT_EQ(responses[0].output[0], 2.0f);
-    EXPECT_FLOAT_EQ(responses[0].output[1], 4.0f);
-    EXPECT_FLOAT_EQ(responses[0].output[2], 6.0f);
+    REQUIRE(responses.size() == 1u);
+    CHECK(responses[0].id == batch[0].id);
+    CHECK_THAT(responses[0].output[0], Catch::Matchers::WithinULP(2.0f, 4));
+    CHECK_THAT(responses[0].output[1], Catch::Matchers::WithinULP(4.0f, 4));
+    CHECK_THAT(responses[0].output[2], Catch::Matchers::WithinULP(6.0f, 4));
   }
 }
 
-TEST(InferenceEngineTest, HandlesEmptyBatch) {
+TEST_CASE("HandlesEmptyBatch", "[inference_engine]") {
   InferenceEngine engine;
   std::vector<Request> batch;
   std::vector<Response> responses;
 
   engine.run_batch(batch, responses);
 
-  EXPECT_TRUE(responses.empty());
+  CHECK(responses.empty());
 }

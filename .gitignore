@@ -1,19 +1,11 @@
 # Build output
 build/
+builddir/
 out/
-cmake-build-*/
 
-# CMake generated files
-CMakeCache.txt
-CMakeFiles/
-CMakeScripts/
-Testing/
-Makefile
-cmake_install.cmake
-install_manifest.txt
-compile_commands.json
-CTestTestfile.cmake
-_deps/
+# Meson subprojects (keep the .wrap files, ignore downloaded sources)
+subprojects/*
+!subprojects/*.wrap
 
 # Compiled objects / binaries
 *.o

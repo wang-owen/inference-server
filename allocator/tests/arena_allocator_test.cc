@@ -2,50 +2,50 @@
 
 #include <cstdint>
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 
-TEST(ArenaAllocatorTest, ConstructsWithCapacity) {
+TEST_CASE("ConstructsWithCapacity", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
-  EXPECT_EQ(arena.capacity(), 256u);
-  EXPECT_EQ(arena.used(), 0u);
+  CHECK(arena.capacity() == 256u);
+  CHECK(arena.used() == 0u);
 }
 
-TEST(ArenaAllocatorTest, ResetDoesNotCrash) {
+TEST_CASE("ResetDoesNotCrash", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
   arena.reset();
   SUCCEED();
 }
 
-TEST(ArenaAllocatorTest, AllocateReturnsNonNull) {
+TEST_CASE("AllocateReturnsNonNull", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
-  EXPECT_EQ(arena.capacity(), 256u);
-  EXPECT_NE(arena.allocate(1), nullptr);
+  CHECK(arena.capacity() == 256u);
+  CHECK(arena.allocate(1) != nullptr);
 }
 
-TEST(ArenaAllocatorTest, ExhaustReturnsNull) {
+TEST_CASE("ExhaustReturnsNull", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
-  EXPECT_EQ(arena.capacity(), 256u);
-  EXPECT_NE(arena.allocate(256), nullptr);
-  EXPECT_EQ(arena.allocate(1), nullptr);
+  CHECK(arena.capacity() == 256u);
+  CHECK(arena.allocate(256) != nullptr);
+  CHECK(arena.allocate(1) == nullptr);
 }
 
-TEST(ArenaAllocatorTest, ResetResetsSpace) {
+TEST_CASE("ResetResetsSpace", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
-  EXPECT_EQ(arena.capacity(), 256u);
-  EXPECT_NE(arena.allocate(256), nullptr);
+  CHECK(arena.capacity() == 256u);
+  CHECK(arena.allocate(256) != nullptr);
   arena.reset();
-  EXPECT_NE(arena.allocate(256), nullptr);
+  CHECK(arena.allocate(256) != nullptr);
 }
 
-TEST(ArenaAllocatorTest, AllocateReturnsAlignedPointers) {
+TEST_CASE("AllocateReturnsAlignedPointers", "[arena_allocator]") {
   allocator::ArenaAllocator arena(256);
 
   // Force misalignment first so the second allocate() has to round up.
   void *p1 = arena.allocate(1, 16);
   void *p2 = arena.allocate(3, 16);
 
-  ASSERT_NE(p1, nullptr);
-  ASSERT_NE(p2, nullptr);
-  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(p1) % 16, 0u);
-  EXPECT_EQ(reinterpret_cast<std::uintptr_t>(p2) % 16, 0u);
+  REQUIRE(p1 != nullptr);
+  REQUIRE(p2 != nullptr);
+  CHECK(reinterpret_cast<std::uintptr_t>(p1) % 16 == 0u);
+  CHECK(reinterpret_cast<std::uintptr_t>(p2) % 16 == 0u);
 }

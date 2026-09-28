@@ -1,22 +1,28 @@
 #include "minicache/minicache.h"
 
-#include <chrono>
-#include <cstdio>
+#include <catch2/benchmark/catch_benchmark.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include <cstddef>
 #include <string>
+#include <vector>
 
-int main() {
-  constexpr int kIterations = 100'000;
-  minicache::LruCache cache(1024);
+TEST_CASE("LruCache operations", "[!benchmark][minicache]") {
+  // Twice as many keys as the capacity, cycled in order, so steady state
+  // evicts on every put.
+  constexpr std::size_t kCapacity = 1024;
+  std::vector<std::string> keys;
+  keys.reserve(2 * kCapacity);
+  for (std::size_t i = 0; i < 2 * kCapacity; ++i)
+    keys.push_back("key" + std::to_string(i));
+
+  minicache::LruCache cache(kCapacity);
   std::string out;
+  std::size_t next = 0;
 
-  auto start = std::chrono::steady_clock::now();
-  for (int i = 0; i < kIterations; ++i) {
-    cache.put("key" + std::to_string(i % 2048), "value");
-    cache.get("key" + std::to_string(i % 2048), out);
-  }
-  auto elapsed = std::chrono::steady_clock::now() - start;
-  std::printf("LruCache put+get: %.3f ms for %d iterations\n",
-              std::chrono::duration<double, std::milli>(elapsed).count(),
-              kIterations);
-  return 0;
+  BENCHMARK("put+get") {
+    const std::string &key = keys[next++ % keys.size()];
+    cache.put(key, "value");
+    return cache.get(key, out);
+  };
 }

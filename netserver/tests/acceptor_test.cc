@@ -12,14 +12,14 @@
 #include <mutex>
 #include <thread>
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 
 namespace {
 
 std::uint16_t bound_port(int fd) {
   sockaddr_in addr{};
   socklen_t len = sizeof(addr);
-  EXPECT_NE(::getsockname(fd, reinterpret_cast<sockaddr *>(&addr), &len), -1);
+  CHECK(::getsockname(fd, reinterpret_cast<sockaddr *>(&addr), &len) != -1);
   return ntohs(addr.sin_port);
 }
 
@@ -29,7 +29,7 @@ std::uint16_t bound_port(int fd) {
 // thread, PollPoller watching the Acceptor's listening Channel, a real client
 // connecting over a loopback socket, and stop()/wakeup() tearing the loop
 // back down afterward.
-TEST(AcceptorEventLoopTest, AcceptsConnectionThroughReactor) {
+TEST_CASE("AcceptsConnectionThroughReactor", "[acceptor_event_loop]") {
   netserver::EventLoop loop;
   netserver::Acceptor acceptor(&loop, "127.0.0.1", 0);
 
@@ -43,33 +43,31 @@ TEST(AcceptorEventLoopTest, AcceptsConnectionThroughReactor) {
     cv.notify_one();
   });
 
-  ASSERT_TRUE(acceptor.start());
+  REQUIRE(acceptor.start());
   std::uint16_t port = bound_port(acceptor.listen_fd());
 
   std::thread loop_thread([&loop] { loop.run(); });
 
   int client_fd = ::socket(AF_INET, SOCK_STREAM, 0);
-  ASSERT_NE(client_fd, -1);
+  REQUIRE(client_fd != -1);
 
   sockaddr_in server_addr{};
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(port);
-  ASSERT_EQ(::inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr), 1);
-  ASSERT_NE(::connect(client_fd, reinterpret_cast<sockaddr *>(&server_addr),
-                      sizeof(server_addr)),
-            -1);
+  REQUIRE(::inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) == 1);
+  REQUIRE(::connect(client_fd, reinterpret_cast<sockaddr *>(&server_addr),
+                    sizeof(server_addr)) != -1);
 
   {
     std::unique_lock<std::mutex> lock(mu);
-    ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(2),
-                            [&] { return accepted_fd != -1; }));
+    REQUIRE(cv.wait_for(lock, std::chrono::seconds(2),
+                        [&] { return accepted_fd != -1; }));
   }
 
   sockaddr_in peer{};
   socklen_t peer_len = sizeof(peer);
-  EXPECT_NE(::getpeername(accepted_fd, reinterpret_cast<sockaddr *>(&peer),
-                          &peer_len),
-            -1);
+  CHECK(::getpeername(accepted_fd, reinterpret_cast<sockaddr *>(&peer),
+                      &peer_len) != -1);
 
   ::close(client_fd);
   ::close(accepted_fd);

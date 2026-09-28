@@ -1,87 +1,87 @@
 #include "minicache/lru_cache.h"
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 
-TEST(LruCacheTest, ConstructsWithCapacity) {
+TEST_CASE("ConstructsWithCapacity", "[lru_cache]") {
   minicache::LruCache cache(16);
-  EXPECT_EQ(cache.capacity(), 16u);
+  CHECK(cache.capacity() == 16u);
 }
 
-TEST(LruCacheTest, RejectsZeroCapacity) {
-  EXPECT_THROW(minicache::LruCache(0), std::invalid_argument);
+TEST_CASE("RejectsZeroCapacity", "[lru_cache]") {
+  CHECK_THROWS_AS(minicache::LruCache(0), std::invalid_argument);
 }
 
-TEST(LruCacheTest, GetOnMissingKeyReturnsFalse) {
+TEST_CASE("GetOnMissingKeyReturnsFalse", "[lru_cache]") {
   minicache::LruCache cache(2);
   std::string out;
-  EXPECT_FALSE(cache.get("missing", out));
+  CHECK_FALSE(cache.get("missing", out));
 }
 
-TEST(LruCacheTest, PutThenGetRoundTrips) {
+TEST_CASE("PutThenGetRoundTrips", "[lru_cache]") {
   minicache::LruCache cache(2);
   cache.put("a", "1");
 
   std::string out;
-  ASSERT_TRUE(cache.get("a", out));
-  EXPECT_EQ(out, "1");
-  EXPECT_EQ(cache.size(), 1u);
+  REQUIRE(cache.get("a", out));
+  CHECK(out == "1");
+  CHECK(cache.size() == 1u);
 }
 
-TEST(LruCacheTest, PutOverwritesExistingKeyWithoutGrowing) {
+TEST_CASE("PutOverwritesExistingKeyWithoutGrowing", "[lru_cache]") {
   minicache::LruCache cache(2);
   cache.put("a", "1");
   cache.put("a", "2");
 
   std::string out;
-  ASSERT_TRUE(cache.get("a", out));
-  EXPECT_EQ(out, "2");
-  EXPECT_EQ(cache.size(), 1u);
+  REQUIRE(cache.get("a", out));
+  CHECK(out == "2");
+  CHECK(cache.size() == 1u);
 }
 
-TEST(LruCacheTest, RemoveDeletesKey) {
+TEST_CASE("RemoveDeletesKey", "[lru_cache]") {
   minicache::LruCache cache(2);
   cache.put("a", "1");
 
-  EXPECT_TRUE(cache.remove("a"));
-  EXPECT_EQ(cache.size(), 0u);
+  CHECK(cache.remove("a"));
+  CHECK(cache.size() == 0u);
 
   std::string out;
-  EXPECT_FALSE(cache.get("a", out));
+  CHECK_FALSE(cache.get("a", out));
 }
 
-TEST(LruCacheTest, RemoveOnMissingKeyReturnsFalse) {
+TEST_CASE("RemoveOnMissingKeyReturnsFalse", "[lru_cache]") {
   minicache::LruCache cache(2);
-  EXPECT_FALSE(cache.remove("missing"));
+  CHECK_FALSE(cache.remove("missing"));
 }
 
-TEST(LruCacheTest, PutOverCapacityEvictsLeastRecentlyUsed) {
+TEST_CASE("PutOverCapacityEvictsLeastRecentlyUsed", "[lru_cache]") {
   minicache::LruCache cache(2);
   cache.put("a", "1");
   cache.put("b", "2");
   cache.put("c", "3"); // cache was full with [a, b]; a is least-recently-used.
 
   std::string out;
-  EXPECT_FALSE(cache.get("a", out));
-  ASSERT_TRUE(cache.get("b", out));
-  EXPECT_EQ(out, "2");
-  ASSERT_TRUE(cache.get("c", out));
-  EXPECT_EQ(out, "3");
-  EXPECT_EQ(cache.size(), 2u);
+  CHECK_FALSE(cache.get("a", out));
+  REQUIRE(cache.get("b", out));
+  CHECK(out == "2");
+  REQUIRE(cache.get("c", out));
+  CHECK(out == "3");
+  CHECK(cache.size() == 2u);
 }
 
-TEST(LruCacheTest, GetPromotesEntrySoItSurvivesNextEviction) {
+TEST_CASE("GetPromotesEntrySoItSurvivesNextEviction", "[lru_cache]") {
   minicache::LruCache cache(2);
   cache.put("a", "1");
   cache.put("b", "2");
 
   std::string out;
-  ASSERT_TRUE(cache.get("a", out)); // a is now most-recently-used; b is LRU.
+  REQUIRE(cache.get("a", out)); // a is now most-recently-used; b is LRU.
 
   cache.put("c", "3"); // should evict b, not a.
 
-  EXPECT_FALSE(cache.get("b", out));
-  ASSERT_TRUE(cache.get("a", out));
-  EXPECT_EQ(out, "1");
-  ASSERT_TRUE(cache.get("c", out));
-  EXPECT_EQ(out, "3");
+  CHECK_FALSE(cache.get("b", out));
+  REQUIRE(cache.get("a", out));
+  CHECK(out == "1");
+  REQUIRE(cache.get("c", out));
+  CHECK(out == "3");
 }

@@ -1,9 +1,9 @@
 #include "threadpool/thread_pool.h"
 
 #include <atomic>
+#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <functional>
-#include <gtest/gtest.h>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -23,28 +23,28 @@ bool wait_until(const std::function<bool()> &pred,
 
 } // namespace
 
-TEST(WorkStealingDequeTest, PopIsLifoAndStealIsFifo) {
+TEST_CASE("PopIsLifoAndStealIsFifo", "[work_stealing_deque]") {
   threadpool::WorkStealingDeque dq;
   std::vector<int> order;
   dq.push([&order] { order.push_back(1); });
   dq.push([&order] { order.push_back(2); });
   dq.push([&order] { order.push_back(3); });
   threadpool::Task task;
-  ASSERT_TRUE(dq.try_pop(task));
+  REQUIRE(dq.try_pop(task));
   task(); // owner-thread pop takes from the back (LIFO): runs task 3
-  ASSERT_TRUE(dq.try_steal(task));
+  REQUIRE(dq.try_steal(task));
   task(); // thief takes from the front (FIFO): runs task 1
-  ASSERT_TRUE(dq.try_pop(task));
+  REQUIRE(dq.try_pop(task));
   task(); // only task 2 is left
-  EXPECT_EQ(order, (std::vector<int>{3, 1, 2}));
+  CHECK(order == std::vector<int>{3, 1, 2});
 }
 
-TEST(ThreadPoolTest, ConstructsRequestedWorkerCount) {
+TEST_CASE("ConstructsRequestedWorkerCount", "[thread_pool]") {
   threadpool::ThreadPool pool(3);
-  EXPECT_EQ(pool.num_workers(), 3u);
+  CHECK(pool.num_workers() == 3u);
 }
 
-TEST(ThreadPoolTest, RunsAllSubmittedTasks) {
+TEST_CASE("RunsAllSubmittedTasks", "[thread_pool]") {
   std::atomic<int> counter{0};
   constexpr int kTasks = 1000;
   {
@@ -54,14 +54,14 @@ TEST(ThreadPoolTest, RunsAllSubmittedTasks) {
           [&counter] { counter.fetch_add(1, std::memory_order_relaxed); });
     }
   } // destructor joins every worker, so all tasks have run by here
-  EXPECT_EQ(counter.load(), kTasks);
+  CHECK(counter.load() == kTasks);
 }
 
-TEST(ThreadPoolTest, ThrowsOnZero) {
-  EXPECT_ANY_THROW(threadpool::ThreadPool pool(0));
+TEST_CASE("ThrowsOnZero", "[thread_pool]") {
+  CHECK_THROWS(threadpool::ThreadPool(0));
 }
 
-TEST(ThreadPoolTest, IdleWorkerStealsFromBusyWorkersQueue) {
+TEST_CASE("IdleWorkerStealsFromBusyWorkersQueue", "[thread_pool]") {
   threadpool::ThreadPool pool(2);
   std::atomic<bool> release_blocked_task{false};
   std::atomic<int> completed{0};
@@ -82,16 +82,17 @@ TEST(ThreadPoolTest, IdleWorkerStealsFromBusyWorkersQueue) {
         [&completed] { completed.fetch_add(1, std::memory_order_relaxed); });
   }
 
-  EXPECT_TRUE(wait_until([&] { return completed.load() == kExtraTasks; },
-                         std::chrono::seconds(2)))
-      << "expected worker 1 to steal worker 0's backlog while worker 0 was "
-         "blocked, but only "
-      << completed.load() << "/" << kExtraTasks << " tasks completed";
+  const bool all_completed = wait_until(
+      [&] { return completed.load() == kExtraTasks; }, std::chrono::seconds(2));
+  INFO("expected worker 1 to steal worker 0's backlog while worker 0 was "
+       "blocked, but only "
+       << completed.load() << "/" << kExtraTasks << " tasks completed");
+  CHECK(all_completed);
 
   release_blocked_task.store(true, std::memory_order_release);
 }
 
-TEST(ThreadPoolTest, SubmitDuringShutdownIsDropped) {
+TEST_CASE("SubmitDuringShutdownIsDropped", "[thread_pool]") {
   std::atomic<bool> extra_task_ran{false};
   {
     threadpool::ThreadPool pool(1);
@@ -102,10 +103,10 @@ TEST(ThreadPoolTest, SubmitDuringShutdownIsDropped) {
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  EXPECT_FALSE(extra_task_ran.load());
+  CHECK_FALSE(extra_task_ran.load());
 }
 
-TEST(ThreadPoolTest, AcceptsConcurrentSubmissionsFromMultipleThreads) {
+TEST_CASE("AcceptsConcurrentSubmissionsFromMultipleThreads", "[thread_pool]") {
   constexpr int kProducers = 8;
   constexpr int kTasksPerProducer = 500;
   std::atomic<int> counter{0};
@@ -124,10 +125,10 @@ TEST(ThreadPoolTest, AcceptsConcurrentSubmissionsFromMultipleThreads) {
       t.join();
     }
   } // destructor joins every worker, so all tasks have run by here
-  EXPECT_EQ(counter.load(), kProducers * kTasksPerProducer);
+  CHECK(counter.load() == kProducers * kTasksPerProducer);
 }
 
-TEST(ThreadPoolTest, TasksCarryingHeapAllocatedStateRunCorrectly) {
+TEST_CASE("TasksCarryingHeapAllocatedStateRunCorrectly", "[thread_pool]") {
   struct Payload {
     std::vector<int> data;
     int checksum() const {
@@ -154,5 +155,5 @@ TEST(ThreadPoolTest, TasksCarryingHeapAllocatedStateRunCorrectly) {
       });
     }
   }
-  EXPECT_EQ(mismatches.load(), 0);
+  CHECK(mismatches.load() == 0);
 }

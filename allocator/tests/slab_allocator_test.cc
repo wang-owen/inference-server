@@ -2,42 +2,43 @@
 
 #include <unordered_set>
 
-#include <gtest/gtest.h>
+#include <catch2/catch_test_macros.hpp>
 
-TEST(SlabAllocatorTest, ConstructsWithChunkSize) {
+TEST_CASE("ConstructsWithChunkSize", "[slab_allocator]") {
   allocator::SlabAllocator slab(32, 8);
-  EXPECT_GE(slab.chunk_size(), 32u);
+  CHECK(slab.chunk_size() >= 32u);
 }
 
-TEST(SlabAllocatorTest, AllocateReturnsDistinctNonNullPointers) {
+TEST_CASE("AllocateReturnsDistinctNonNullPointers", "[slab_allocator]") {
   allocator::SlabAllocator slab(32, 8);
-  EXPECT_EQ(slab.free_count(), 8u);
+  CHECK(slab.free_count() == 8u);
 
   std::unordered_set<void *> seen;
   for (int i = 0; i < 8; ++i) {
     void *p = slab.allocate();
-    ASSERT_NE(p, nullptr);
-    EXPECT_TRUE(seen.insert(p).second) << "duplicate chunk returned";
+    REQUIRE(p != nullptr);
+    INFO("duplicate chunk returned");
+    CHECK(seen.insert(p).second);
   }
-  EXPECT_EQ(slab.free_count(), 0u);
+  CHECK(slab.free_count() == 0u);
 }
 
-TEST(SlabAllocatorTest, ExhaustReturnsNull) {
+TEST_CASE("ExhaustReturnsNull", "[slab_allocator]") {
   allocator::SlabAllocator slab(32, 8);
   for (int i = 0; i < 8; ++i) {
-    EXPECT_NE(slab.allocate(), nullptr);
+    CHECK(slab.allocate() != nullptr);
   }
-  EXPECT_EQ(slab.allocate(), nullptr);
+  CHECK(slab.allocate() == nullptr);
 }
 
-TEST(SlabAllocatorTest, DeallocateMakesChunkAllocatableAgain) {
+TEST_CASE("DeallocateMakesChunkAllocatableAgain", "[slab_allocator]") {
   allocator::SlabAllocator slab(32, 8);
   void *first = slab.allocate();
-  ASSERT_NE(first, nullptr);
+  REQUIRE(first != nullptr);
 
   slab.deallocate(first);
-  EXPECT_EQ(slab.free_count(), 8u);
+  CHECK(slab.free_count() == 8u);
 
   void *reused = slab.allocate();
-  EXPECT_EQ(reused, first);
+  CHECK(reused == first);
 }
