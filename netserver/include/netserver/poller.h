@@ -7,11 +7,7 @@ namespace netserver {
 
 class Channel;
 
-// Abstract interface hiding the underlying event-notification mechanism
-// (poll(), epoll, ...). Poller knows Channel only as a data source: each
-// registered channel contributes an fd + interest to the watch set, and
-// poll() hands back the subset that are actually ready. It has no idea what
-// a callback is, let alone what's inside one.
+// Abstract interface hiding the underlying event-notification mechanism.
 class Poller {
 public:
   using ChannelList = std::vector<Channel *>;

@@ -9,9 +9,7 @@
 
 namespace netserver {
 
-// Poller implementation backed by ::poll(). Portable (works on macOS and
-// Linux); an epoll-based Poller can later be dropped in behind
-// Poller::create_default() without touching EventLoop or Channel.
+// Poller implementation backed by ::poll().
 class PollPoller : public Poller {
 public:
   PollPoller() = default;

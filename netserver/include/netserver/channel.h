@@ -23,12 +23,8 @@ public:
 
   int fd() const { return fd_; }
 
-  // Bitmask of events currently registered; consumed by Poller when it
-  // builds its watch set.
   int events() const { return events_; }
 
-  // Set by Poller to the events that actually fired, then handle_event()
-  // dispatches to the matching callback.
   void set_revents(int revents) { revents_ = revents; }
   void handle_event();
 

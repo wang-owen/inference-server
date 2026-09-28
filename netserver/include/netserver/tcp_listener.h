@@ -16,10 +16,7 @@ public:
   // listening.
   bool start();
 
-  // Closes listen_fd_ if open. Idempotent; also called by the destructor,
-  // so it's safe to let a TcpListener just go out of scope. TcpListener has
-  // no knowledge of loops or threads, so unlike TcpServer::stop() there is
-  // no blocking accept() to unblock here.
+  // Closes listen_fd_ if open.
   void stop();
 
   int listen_fd() const { return listen_fd_; }

@@ -12,11 +12,6 @@ namespace netserver {
 class Channel;
 class EventLoop;
 
-// Owns a TcpListener and a Channel wrapping its fd, and registers that
-// channel's read callback to accept connections and hand each new fd to
-// new_connection_callback_. The only class that touches TcpListener,
-// Channel, and EventLoop directly — it's the top of the stack; nothing else
-// in the MVP depends on it.
 class Acceptor {
 public:
   using NewConnectionCallback = std::function<void(int client_fd)>;
@@ -37,8 +32,6 @@ public:
   int listen_fd() const { return listener_.listen_fd(); }
 
 private:
-  // Registered as the channel's read callback: invoked whenever the loop
-  // reports the listening fd readable.
   void handle_read();
 
   EventLoop *loop_;
