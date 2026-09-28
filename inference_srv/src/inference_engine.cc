@@ -37,16 +37,15 @@ void InferenceEngine::run_batch(const std::vector<Request> &batch,
     float *buf = static_cast<float *>(ptr);
     std::copy(req.input.begin(), req.input.end(), buf);
 
-    Response resp;
-    resp.id = req.id;
-    resp.output.resize(req.input.size());
+    Response response = {.id = req.id, .client_id = req.client_id};
+    response.output.resize(req.input.size());
 
     // Scale by 2.0 as stand-in
     for (std::size_t i = 0; i < req.input.size(); ++i) {
-      resp.output[i] = buf[i] * 2.0f;
+      response.output[i] = buf[i] * 2.0f;
     }
 
-    out_responses.push_back(std::move(resp));
+    out_responses.push_back(std::move(response));
   }
 
   // Simulate model latency

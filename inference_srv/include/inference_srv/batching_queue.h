@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
@@ -14,11 +15,13 @@ namespace inference_srv {
 
 struct Request {
   std::uint64_t id;
+  std::uint64_t client_id;
   std::vector<float> input;
 };
 
 struct Response {
   std::uint64_t id;
+  std::uint64_t client_id;
   std::vector<float> output;
 };
 
@@ -41,6 +44,8 @@ public:
 
   void submit(Request request, ResponseCallback on_response);
 
+  std::uint64_t get_id() { return counter_++; }
+
 private:
   struct PendingRequest {
     Request request;
@@ -56,6 +61,7 @@ private:
   std::mutex mtx_;
   std::condition_variable cv_;
   std::deque<PendingRequest> pending_;
+  std::atomic<std::uint64_t> counter_ = 0;
   bool stop_ = false;
   std::thread worker_thread_;
 };
