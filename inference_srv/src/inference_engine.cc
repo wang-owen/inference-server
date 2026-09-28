@@ -1,12 +1,12 @@
 #include "inference_srv/inference_engine.h"
 
-#include <chrono>
-#include <stdexcept>
-#include <thread>
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
+#include <stdexcept>
+#include <thread>
 #include <utility>
 
 namespace inference_srv {

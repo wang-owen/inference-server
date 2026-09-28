@@ -23,7 +23,7 @@ void set_nonblocking(int fd) {
 
 Acceptor::Acceptor(EventLoop *loop, std::string bind_address,
                    std::uint16_t port)
-    : loop_(loop), listener_{std::move(bind_address), port} {}
+    : loop_{loop}, listener_{std::move(bind_address), port} {}
 
 Acceptor::~Acceptor() {
   if (channel_) {

@@ -1,9 +1,9 @@
 #include "netserver/channel.h"
 
-#include "netserver/event_loop.h"
-
 #include <poll.h>
 #include <sys/poll.h>
+
+#include "netserver/event_loop.h"
 
 namespace netserver {
 

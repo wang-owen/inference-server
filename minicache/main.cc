@@ -82,7 +82,7 @@ void handle_client(int client_fd, minicache::CommandDispatcher &dispatcher,
 } // namespace
 
 int main() {
-  static constexpr std::string kBindAddress = "127.0.0.1";
+  static constexpr std::string_view kBindAddress = "127.0.0.1";
   static constexpr std::uint16_t kPort = 9090;
 
   minicache::LruCache cache(1024);
@@ -90,7 +90,7 @@ int main() {
   std::mutex dispatcher_mutex;
 
   netserver::EventLoop loop;
-  netserver::Acceptor acceptor(&loop, kBindAddress, kPort);
+  netserver::Acceptor acceptor(&loop, std::string(kBindAddress), kPort);
   acceptor.set_new_connection_callback([&](int client_fd) {
     set_blocking(client_fd);
     std::thread(handle_client, client_fd, std::ref(dispatcher),

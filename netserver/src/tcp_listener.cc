@@ -1,15 +1,16 @@
 #include "netserver/tcp_listener.h"
 
 #include <arpa/inet.h>
-#include <cstdio>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <cstdio>
+
 namespace netserver {
 
 TcpListener::TcpListener(std::string bind_address, std::uint16_t port)
-    : bind_address_(std::move(bind_address)), port_(port) {}
+    : bind_address_{std::move(bind_address)}, port_{port} {}
 
 TcpListener::~TcpListener() { stop(); }
 
