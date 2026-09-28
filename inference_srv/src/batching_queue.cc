@@ -35,23 +35,34 @@ void BatchingQueue::submit(Request request, ResponseCallback on_response) {
 
 void BatchingQueue::worker_loop() {
   while (true) {
-    std::unique_lock<std::mutex> lock{mtx_};
-    if (stop_)
-      break;
-    auto deadline = std::chrono::steady_clock::now() + max_wait_;
-    cv_.wait_until(lock, deadline, [this] {
-      return stop_ || pending_.size() >= max_batch_size_;
-    });
+    std::vector<PendingRequest> pending_requests;
+    std::size_t len;
+    {
+      std::unique_lock<std::mutex> lock{mtx_};
+      if (stop_)
+        break;
 
-    std::vector<Request> batch;
-    std::vector<Response> responses;
-    std::size_t len =
-        std::min(pending_.size(), static_cast<std::size_t>(max_batch_size_));
-    if (len == 0) {
-      continue;
+      auto deadline = std::chrono::steady_clock::now() + max_wait_;
+      cv_.wait_until(lock, deadline, [this] {
+        return stop_ || pending_.size() >= max_batch_size_;
+      });
+
+      if ((len = std::min(pending_.size(),
+                          static_cast<std::size_t>(max_batch_size_))) == 0)
+        continue;
+
+      for (std::size_t i = 0; i < len; ++i) {
+        pending_requests.push_back(std::move(pending_[i]));
+      }
+      pending_.erase(pending_.begin(), pending_.begin() + len);
     }
+
+    pending_requests.reserve(len);
+    std::vector<Request> batch;
+    batch.reserve(len);
+    std::vector<Response> responses;
     for (std::size_t i = 0; i < len; ++i) {
-      batch.push_back(std::move(pending_[i].request));
+      batch.push_back(std::move(pending_requests[i].request));
     }
 
     handler_(batch, responses);
@@ -62,10 +73,8 @@ void BatchingQueue::worker_loop() {
     }
 
     for (std::size_t i = 0; i < len; ++i) {
-      pending_[i].on_response(response_map.at(pending_[i].request.id));
+      pending_requests[i].on_response(response_map.at(batch[i].id));
     }
-
-    pending_.erase(pending_.begin(), pending_.begin() + len);
   }
 }
 
