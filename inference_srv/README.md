@@ -7,15 +7,11 @@ batch input buffer; `BatchingQueue`'s worker thread follows the same
 mutex/condition_variable pattern as [`threadpool`](../threadpool)
 without calling into it.
 
-## WIP
+## TODO
 
-- **No network front end.** There's no [`netserver`](../netserver)-backed
-  listener yet -- `main.cc`, the tests, and the benchmark all call
-  `BatchingQueue::submit()` in-process. Nothing currently accepts a
-  request over a socket. `netserver_dep` is linked in
-  `meson.build` but unused in source.
-- **`threadpool_dep` is also an unused link dependency** -- `BatchingQueue`
-  hand-rolls its own single worker thread rather than calling `threadpool::ThreadPool`
+- No network front end
+- `threadpool_dep` is also an unused link dependency
+- Failures within a worker thread are not propagated upwards. If engine throws then `response.at` fails and worker terminates. `fut.get()` throws.
 
 ## Why batching helps
 
