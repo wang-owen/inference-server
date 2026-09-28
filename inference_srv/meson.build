@@ -13,6 +13,7 @@ inference_srv_dep = declare_dependency(
 )
 
 executable('inference_srv_main', 'main.cc', dependencies: [inference_srv_dep])
+executable('inference_srv_client', 'client.cc')
 
 if build_tests
     test(
